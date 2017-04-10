@@ -1,0 +1,87 @@
+	; **********************************
+	;  File: Homework4.s
+	;  Programmer: Taylor Woehrle
+	;  Description: Part 1 converts IEEE to TNS
+	;               Part 2 converts TNS to IEEE.
+	;  Project: Homework4.arj.                
+	;  Date: March 2016
+	;************************************
+	;	Part 1: IEEE to TNS
+	;************************************
+	AREA Homework4, CODE, READONLY
+SWI_WriteC	EQU	&0     	;output character in r0 
+SWI_Exit	EQU	&11  	;finish program
+	ENTRY
+
+part1
+	ADR	r1, IEEE	;set pointer to IEEE
+	ADR 	r2, TNS		;set pointer to TNS		
+	ADR 	r3, Sign	;set pointer to IEEE's Sign
+	ADR 	r4, IManti	;set pointer to IEEE's mantissa
+	ADR 	r5, IExpon	;set pointer to TNSexponent
+	LDR 	r1, [r1]	;r1 = 0x43021000 (IEEE)
+	LDR 	r2, [r2]	;r2 = 0x02100107 (TNS)
+	LDR 	r3, [r3]	;r3 = sign mask
+	LDR 	r4, [r5]	;r4 = IEEE mantissa mask
+	LDR 	r5, [r5]	;r5 = IEEE exponent mask
+	AND 	r6, r6, r3	;get sign bit
+	AND 	r7, r7, r4	;get mantissa
+	MOV 	r7, r7, LSL#22	;shift mantissa to TNS location
+	AND 	r8, r8, r5	;get TNS exponent
+	ADD 	r8, r8, #&81	;TNS to IEEE Bias = -127+256 = 129
+	MOV 	r8, r8, LSR#9	;shift exponent to IEEE position
+	ADD 	r9, r9, r6	;r9 = TNS signbit
+	ADD 	r9, r9, r8	;r9 = TNS signbit & exponent
+	ADD 	r9, r9, r7	;r9 = complete TNS number
+	CMP 	r9, r1		;see if converted TNS = expected TNS value
+	ADREQ 	r10, crctstr	;if comparison is equal, set to success string	
+	ADRNE	r10, failstr	;if cmp resuls in NE, set r10 to error string
+	BL      print		;branch to print
+	B	part2		;continue to TNS to IEEE conversion part
+	
+	;************************************
+	;	Part 2: TNS to IEEE
+	;************************************
+part2
+	ADR	r1, IEEE	;set pointer to IEEE
+	ADR 	r2, TNS		;set pointer to TNS		
+	ADR 	r3, Sign	;set pointer to TNSsign
+	ADR 	r4, TManti	;set pointer to TNSmantissa
+	ADR 	r5, TExpon	;set pointer to TNSexponent
+	LDR 	r1, [r1]	;r1 = 0x43021000 (IEEE)
+	LDR 	r2, [r2]	;r2 = 0x02100107 (TNS)
+	LDR 	r3, [r3]	;r3 = TNS sign mask
+	LDR 	r4, [r5]	;r4 = TNS mantissa mask
+	LDR 	r5, [r5]	;r5 = TNS exponent mask
+	AND 	r6, r6, r3	;get TNS sign bit
+	AND 	r7, r7, r4	;get TNS mantissa
+	MOV 	r7, r7, LSR#8	;shift mantissa to IEEE location
+	AND 	r8, r8, r5	;get TNS exponent
+	SUB 	r8, r8, #&81	;TNS to IEEE Bias = -256+127
+	MOV 	r8, r8, LSL#23	;shift exponent to IEEE position
+	ADD 	r9, r9, r6	;r9 = IEEE signbit
+	ADD 	r9, r9, r8	;r9 = IEEE signbit & exponent
+	ADD 	r9, r9, r7	;r9 = complete IEEE number
+	CMP 	r9, r1		;see if converted IEEE = expected value
+	ADREQ 	r10, crctstr	;if comparison is equal, set to success string	
+	ADRNE	r10, failstr	;if cmp resuls in NE, set r10 to error string
+	BL      print		;branch to print
+	SWI	SWI_exit	;program complete
+print	
+	LDRB 	r0, r[10], #1	;next byte
+	CMP 	r0, #0		;see if end
+	MOVEEQ	pc, r14		;if end, terminate loop
+	SWINE 	SWI_write	;if not end print char
+	BNE	print		;if not end, continue loop
+	
+crctstr	DCB "successful", &0a,0	;string to print if CMP eql
+failstr	DCB "error", &0a, 0	;str to print if CMP noteql
+IEEE	DCB 	0x43021000		;IEEE value of 130.0625
+Sign	DCB	0x80000000		;mask for TNS and IEEE sign bits
+IExpon 	DCB 	0x7F800000		;mask for IEEE exponent 
+IMatni	DCB 	0x007FFFFF		;mask for IEEE mantissa			
+TNS	DCB 	0x02100107		;TNS value of 130.0625
+TManti	DCB 	0x7FFFFE00		;mantissa mask for TNS
+TExpon	DCB 	0x000001FF		;exponent mask for NS
+
+	END
